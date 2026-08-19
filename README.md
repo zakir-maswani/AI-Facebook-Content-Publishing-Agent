@@ -15,9 +15,6 @@
 
 ---
 
-> ### ⚠️ Reconstruction Notice
-> The original workflow JSON file was lost. This version was **rebuilt from a screenshot** of the n8n canvas, based on the visible node names and connections. Node logic, AI prompts, field mappings, and API parameters have been **reasonably reconstructed to match the intended purpose** — they are not recovered originals. Review and adjust every node before using this in production.
-
 ## 📋 Overview
 
 This n8n workflow automates end-to-end Facebook content creation: a topic is submitted via form, an AI agent drafts a caption, a human approves or rejects it by email, an approved caption gets turned into an AI-generated poster image, and the final post is published directly to a Facebook Page.
