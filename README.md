@@ -93,9 +93,9 @@ This n8n workflow automates end-to-end Facebook content creation: a topic is sub
 ## 📁 Repository Structure
 
 ```
-├── AI-Powered_Facebook_Content_Publishing_System.json   # Reconstructed n8n workflow (needs configuration)
-├── README.md                                             # You are here
-└── LICENSE                                                # MIT License
+├── AI-Powered_Facebook_Content_Publishing_System.json  
+├── README.md                                            
+└── LICENSE                                                
 ```
 
 ## 🔒 Security Note
