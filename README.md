@@ -94,7 +94,10 @@ This n8n workflow automates end-to-end Facebook content creation: a topic is sub
 
 ```
 ├── AI-Powered_Facebook_Content_Publishing_System.json  
-├── README.md                                            
+├── README.md
+├── AI-Powered Facebook Content Publishing System2.jpg
+├── AI-Powered Facebook Content Publishing System3.jpg
+├── AI-Powered Facebook Content Publishing System.mp4                                        
 └── LICENSE                                                
 ```
 
