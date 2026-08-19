@@ -1,0 +1,389 @@
+{
+  "name": "AI-Powered Facebook Content Publishing System",
+  "nodes": [
+    {
+      "parameters": {
+        "formTitle": "Facebook Content Request",
+        "formDescription": "Submit a topic or idea for an AI-generated Facebook post",
+        "formFields": {
+          "values": [
+            {
+              "fieldLabel": "Topic",
+              "requiredField": true
+            },
+            {
+              "fieldLabel": "Notes / Extra Instructions",
+              "requiredField": false
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.formTrigger",
+      "typeVersion": 2.6,
+      "position": [-1280, -160],
+      "id": "trig-form-0001",
+      "name": "On form submission",
+      "webhookId": "YOUR_FORM_WEBHOOK_ID"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=Topic: {{ $json.Topic }}\nNotes: {{ $json['Notes / Extra Instructions'] }}",
+        "options": {
+          "systemMessage": "=You are a social media content strategist. Based on the given topic and notes, write a draft Facebook post caption. Keep it engaging, on-brand, and appropriately sized for Facebook (under 200 words). Consider recent context using available tools if needed."
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3.1,
+      "position": [-1040, -160],
+      "id": "agent-0001",
+      "name": "AI Agent"
+    },
+    {
+      "parameters": {
+        "model": "models/gemini-2.5-flash",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+      "typeVersion": 1,
+      "position": [-1060, 40],
+      "id": "gemini-0001",
+      "name": "Google Gemini Chat Model",
+      "credentials": {
+        "googlePalmApi": {
+          "id": "YOUR_GOOGLE_GEMINI_CREDENTIAL_ID",
+          "name": "Google Gemini(PaLM) Api account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "sessionIdType": "customKey",
+        "sessionKey": "={{ $json.Email || 'default-session' }}"
+      },
+      "type": "@n8n/n8n-nodes-langchain.memoryBufferWindow",
+      "typeVersion": 1.3,
+      "position": [-1000, 40],
+      "id": "memory-0001",
+      "name": "Simple Memory"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "ef-0001",
+              "name": "draftCaption",
+              "value": "={{ $json.output }}",
+              "type": "string"
+            },
+            {
+              "id": "ef-0002",
+              "name": "topic",
+              "value": "={{ $('On form submission').item.json.Topic }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [-800, -160],
+      "id": "editfields-0001",
+      "name": "Edit Fields"
+    },
+    {
+      "parameters": {
+        "sendTo": "={{ $('On form submission').item.json.Email }}",
+        "subject": "Approve your AI-generated Facebook post",
+        "emailType": "text",
+        "message": "=Here is the draft caption for your review:\n\n{{ $json.draftCaption }}\n\nReply with 'Approve' to publish, or 'Reject' with feedback to regenerate.",
+        "operation": "sendAndWait",
+        "responseType": "freeText",
+        "options": {
+          "appendAttribution": false
+        }
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [-560, -160],
+      "id": "gmail-wait-0001",
+      "name": "Send message and wait for response",
+      "webhookId": "YOUR_WAIT_WEBHOOK_ID",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "YOUR_GMAIL_CREDENTIAL_ID",
+          "name": "Gmail OAuth2 API"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "inputText": "={{ $json.data }}",
+        "categories": {
+          "categories": [
+            { "category": "approved", "description": "The user approved the post for publishing" },
+            { "category": "rejected", "description": "The user rejected the post or requested changes" }
+          ]
+        },
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.textClassifier",
+      "typeVersion": 1.1,
+      "position": [-320, -160],
+      "id": "classifier-0001",
+      "name": "Text Classifier"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=Caption: {{ $('Edit Fields').item.json.draftCaption }}",
+        "options": {
+          "systemMessage": "=You are a visual prompt engineer. Based on the approved Facebook caption, write a single, highly descriptive image generation prompt suitable for an AI image model. Focus on composition, style, colors, and mood. Output only the prompt text."
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3.1,
+      "position": [-40, -320],
+      "id": "agent-poster-0001",
+      "name": "Poster prompt generator"
+    },
+    {
+      "parameters": {
+        "model": "llama-3.1-8b-instant",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatGroq",
+      "typeVersion": 1,
+      "position": [-60, -140],
+      "id": "groq-0001",
+      "name": "Groq Chat Model",
+      "credentials": {
+        "groqApi": {
+          "id": "YOUR_GROQ_CREDENTIAL_ID",
+          "name": "Groq account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api-inference.huggingface.co/models/stabilityai/stable-diffusion-xl-base-1.0",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "Bearer YOUR_HUGGINGFACE_API_TOKEN"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ { \"inputs\": $json.output } }}",
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "file"
+            }
+          }
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [200, -320],
+      "id": "hf-0001",
+      "name": "Hugging Face API"
+    },
+    {
+      "parameters": {
+        "name": "={{ 'fb-post-' + $now.toFormat('yyyy-LL-dd-HHmmss') + '.png' }}",
+        "driveId": {
+          "__rl": true,
+          "value": "My Drive",
+          "mode": "list"
+        },
+        "folderId": {
+          "__rl": true,
+          "value": "YOUR_GOOGLE_DRIVE_FOLDER_ID",
+          "mode": "list"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleDrive",
+      "typeVersion": 3,
+      "position": [440, -320],
+      "id": "gdrive-upload-0001",
+      "name": "Upload file",
+      "credentials": {
+        "googleDriveOAuth2Api": {
+          "id": "YOUR_GOOGLE_DRIVE_CREDENTIAL_ID",
+          "name": "Google Drive account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "share",
+        "fileId": {
+          "__rl": true,
+          "value": "={{ $json.id }}",
+          "mode": "id"
+        },
+        "permissionsUi": {
+          "permissionsValues": {
+            "role": "reader",
+            "type": "anyone"
+          }
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleDrive",
+      "typeVersion": 3,
+      "position": [680, -320],
+      "id": "gdrive-share-0001",
+      "name": "Share file",
+      "credentials": {
+        "googleDriveOAuth2Api": {
+          "id": "YOUR_GOOGLE_DRIVE_CREDENTIAL_ID",
+          "name": "Google Drive account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "resource": "post",
+        "operation": "create",
+        "node": "={{ $('On form submission').item.json.pageId || 'YOUR_FACEBOOK_PAGE_ID' }}",
+        "message": "={{ $('Edit Fields').item.json.draftCaption }}",
+        "additionalFields": {
+          "link": "={{ 'https://drive.google.com/uc?id=' + $json.id }}"
+        }
+      },
+      "type": "n8n-nodes-base.facebookGraphApi",
+      "typeVersion": 1,
+      "position": [920, -320],
+      "id": "fb-publish-0001",
+      "name": "Facebook Graph API",
+      "credentials": {
+        "facebookGraphApi": {
+          "id": "YOUR_FACEBOOK_GRAPH_API_CREDENTIAL_ID",
+          "name": "Facebook Graph account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=Original caption: {{ $('Edit Fields').item.json.draftCaption }}\nFeedback: {{ $('Text Classifier').item.json.data }}",
+        "options": {
+          "systemMessage": "=You are a social media content strategist. The user rejected the previous Facebook post draft and gave feedback. Use the search tool if needed to check current trends, then rewrite an improved caption addressing their feedback. Keep it under 200 words."
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3.1,
+      "position": [-40, 40],
+      "id": "agent-0002",
+      "name": "AI Agent1"
+    },
+    {
+      "parameters": {
+        "model": "models/gemini-2.5-flash",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+      "typeVersion": 1,
+      "position": [-60, 240],
+      "id": "gemini-0002",
+      "name": "Google Gemini Chat Model2",
+      "credentials": {
+        "googlePalmApi": {
+          "id": "YOUR_GOOGLE_GEMINI_CREDENTIAL_ID",
+          "name": "Google Gemini(PaLM) Api account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "query": "={{ $('On form submission').item.json.Topic }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.serpApiTool",
+      "typeVersion": 1,
+      "position": [80, 240],
+      "id": "serp-0001",
+      "name": "SerpAPI",
+      "credentials": {
+        "serpApi": {
+          "id": "YOUR_SERPAPI_CREDENTIAL_ID",
+          "name": "SerpAPI account"
+        }
+      }
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "On form submission": {
+      "main": [[{ "node": "AI Agent", "type": "main", "index": 0 }]]
+    },
+    "AI Agent": {
+      "main": [[{ "node": "Edit Fields", "type": "main", "index": 0 }]]
+    },
+    "Google Gemini Chat Model": {
+      "ai_languageModel": [[{ "node": "AI Agent", "type": "ai_languageModel", "index": 0 }]]
+    },
+    "Simple Memory": {
+      "ai_memory": [[{ "node": "AI Agent", "type": "ai_memory", "index": 0 }]]
+    },
+    "Edit Fields": {
+      "main": [[{ "node": "Send message and wait for response", "type": "main", "index": 0 }]]
+    },
+    "Send message and wait for response": {
+      "main": [[{ "node": "Text Classifier", "type": "main", "index": 0 }]]
+    },
+    "Text Classifier": {
+      "main": [
+        [{ "node": "Poster prompt generator", "type": "main", "index": 0 }],
+        [{ "node": "AI Agent1", "type": "main", "index": 0 }]
+      ]
+    },
+    "Poster prompt generator": {
+      "main": [[{ "node": "Hugging Face API", "type": "main", "index": 0 }]]
+    },
+    "Groq Chat Model": {
+      "ai_languageModel": [[{ "node": "Poster prompt generator", "type": "ai_languageModel", "index": 0 }]]
+    },
+    "Hugging Face API": {
+      "main": [[{ "node": "Upload file", "type": "main", "index": 0 }]]
+    },
+    "Upload file": {
+      "main": [[{ "node": "Share file", "type": "main", "index": 0 }]]
+    },
+    "Share file": {
+      "main": [[{ "node": "Facebook Graph API", "type": "main", "index": 0 }]]
+    },
+    "AI Agent1": {
+      "main": [[{ "node": "Send message and wait for response", "type": "main", "index": 0 }]]
+    },
+    "Google Gemini Chat Model2": {
+      "ai_languageModel": [[{ "node": "AI Agent1", "type": "ai_languageModel", "index": 0 }]]
+    },
+    "SerpAPI": {
+      "ai_tool": [[{ "node": "AI Agent1", "type": "ai_tool", "index": 0 }]]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "versionId": "reconstructed-0001",
+  "meta": {
+    "templateCredsSetupCompleted": false
+  },
+  "nodeGroups": [],
+  "id": "RECONSTRUCTED0001",
+  "tags": []
+}
